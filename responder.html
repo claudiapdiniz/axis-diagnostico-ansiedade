@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Diagnóstico de Ansiedade Ocupacional | Axis Consultorias</title>
+<meta name="description" content="Questionário anônimo de ansiedade ocupacional — Axis Consultorias">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@600;700;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  :root{
+    --bege: #D8C7B8; --bege-escuro: #CBB8A6; --cinza-chumbo: #4A4A4A;
+    --preto-suave: #1F1F1F; --branco-gelo: #F5F5F3;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0; min-height:100vh; background:var(--branco-gelo); color:var(--preto-suave); font-family:'Inter',sans-serif;}
+  h1,h2,h3{font-family:'Montserrat',sans-serif; margin:0 0 10px;}
+  .tela{max-width:560px; margin:0 auto; padding:36px 20px 80px;}
+  .card{background:#fff; border:1px solid var(--bege-escuro); border-radius:14px; padding:28px; box-shadow:0 8px 24px rgba(74,74,74,.06);}
+  .marca{display:flex; align-items:center; gap:10px; margin-bottom:22px;}
+  .marca .ponto{width:10px;height:10px;border-radius:50%;background:var(--cinza-chumbo);}
+  .marca span{font-family:'Montserrat',sans-serif; font-weight:700; letter-spacing:1px; color:var(--cinza-chumbo); font-size:13px; text-transform:uppercase;}
+  .selo{display:inline-flex; align-items:center; gap:6px; background:var(--branco-gelo); border:1px solid var(--bege-escuro); border-radius:20px; padding:6px 12px; font-size:12px; color:var(--cinza-chumbo); margin-bottom:18px;}
+  label{display:block; font-size:13px; font-weight:600; margin:18px 0 6px; color:var(--cinza-chumbo);}
+  select{width:100%; padding:12px 14px; border-radius:8px; border:1px solid var(--bege-escuro); font-family:'Inter'; font-size:14px; background:var(--branco-gelo);}
+  button{font-family:'Montserrat',sans-serif; font-weight:600; font-size:14px; padding:14px 20px; border-radius:8px; border:none; cursor:pointer; width:100%;}
+  .btn-principal{background:var(--preto-suave); color:var(--branco-gelo); margin-top:22px;}
+  .btn-principal:disabled{opacity:.4; cursor:not-allowed;}
+  .pergunta{margin-bottom:26px; padding-bottom:22px; border-bottom:1px solid var(--branco-gelo);}
+  .pergunta:last-child{border-bottom:none;}
+  .pergunta .texto{font-size:14.5px; font-weight:600; margin-bottom:12px; line-height:1.4;}
+  .opcoes{display:grid; grid-template-columns:repeat(4,1fr); gap:6px;}
+  .opcao{position:relative;}
+  .opcao input{position:absolute; opacity:0; width:100%; height:100%; cursor:pointer; margin:0;}
+  .opcao .rot{display:flex; flex-direction:column; align-items:center; justify-content:center; gap:4px; border:1.5px solid var(--bege-escuro); border-radius:8px; padding:10px 4px; font-size:11px; text-align:center; color:var(--cinza-chumbo); min-height:56px;}
+  .opcao input:checked + .rot{border-color:var(--preto-suave); background:var(--bege); color:var(--preto-suave); font-weight:700;}
+  .progresso{height:6px; background:var(--bege); border-radius:6px; overflow:hidden; margin-bottom:24px;}
+  .progresso-barra{height:100%; background:var(--preto-suave); transition:width .2s;}
+  .bloco-titulo{font-size:12px; text-transform:uppercase; letter-spacing:1px; color:var(--cinza-chumbo); font-weight:700; margin:26px 0 4px;}
+  .aviso{font-size:12px; color:var(--cinza-chumbo); background:var(--branco-gelo); border-left:3px solid var(--cinza-chumbo); padding:12px 14px; border-radius:0 8px 8px 0; margin-top:18px;}
+</style>
+</head>
+<body>
+
+<div class="tela">
+  <div class="marca"><div class="ponto"></div><span>Axis Diagnóstico Corporativo</span></div>
+
+  <!-- TELA: CARREGANDO / ERRO -->
+  <div id="tela-carregando" class="card">
+    <p>Carregando questionário...</p>
+  </div>
+
+  <!-- TELA: INTRODUÇÃO -->
+  <div id="tela-intro" class="card hidden" style="display:none;">
+    <div class="selo">🔒 100% anônimo — sem nome, sem e-mail</div>
+    <h2>Diagnóstico de Ansiedade Ocupacional</h2>
+    <p id="intro-empresa" style="color:var(--cinza-chumbo);"></p>
+    <p>Este questionário leva cerca de <b>3 a 4 minutos</b>. Suas respostas não identificam você em nenhum momento — apenas o setor é registrado, para que a empresa possa direcionar melhorias por área.</p>
+    <p>Responda pensando nas <b>últimas duas semanas</b> no seu ambiente de trabalho.</p>
+    <label>Selecione seu setor</label>
+    <select id="intro-setor">
+      <option value="">Selecione...</option>
+      <option>Administrativo</option><option>Comercial</option><option>Financeiro</option>
+      <option>RH</option><option>Operacional</option><option>Produção</option>
+      <option>Atendimento</option><option>Gestão</option><option>Liderança</option><option>Outros</option>
+    </select>
+    <button class="btn-principal" onclick="iniciarQuestionario()">Iniciar questionário →</button>
+  </div>
+
+  <!-- TELA: QUESTIONÁRIO -->
+  <div id="tela-form" class="card hidden" style="display:none;">
+    <div class="progresso"><div class="progresso-barra" id="barra-progresso" style="width:0%;"></div></div>
+    <div class="bloco-titulo">Bloco 1 · Como você tem se sentido</div>
+    <div id="perguntas-sintomas"></div>
+    <div class="bloco-titulo">Bloco 2 · Sobre o seu ambiente de trabalho</div>
+    <div id="perguntas-gatilhos"></div>
+    <button class="btn-principal" id="btn-enviar" disabled onclick="enviarRespostas()">Enviar respostas →</button>
+    <div class="aviso">Ao enviar, você confirma que estas são suas percepções pessoais. Nenhum dado identificável (nome, e-mail, IP) é coletado.</div>
+  </div>
+
+  <!-- TELA: OBRIGADO -->
+  <div id="tela-obrigado" class="card hidden" style="display:none;">
+    <h2>Obrigado pela sua participação 🙏</h2>
+    <p>Sua resposta foi registrada de forma anônima e vai ajudar a empresa a construir um ambiente de trabalho mais saudável.</p>
+    <p style="color:var(--cinza-chumbo);font-size:13px;">Axis Diagnóstico Corporativo — Mapeamento de Riscos Psicossociais NR-1</p>
+  </div>
+
+  <!-- TELA: ERRO -->
+  <div id="tela-erro" class="card hidden" style="display:none;">
+    <h2>Link inválido ou expirado</h2>
+    <p>Não foi possível localizar este questionário. Verifique o link recebido ou fale com o RH da sua empresa.</p>
+  </div>
+</div>
+
+<script>
+const SUPABASE_URL = 'https://kzouxunvofmjprqlzjfd.supabase.co';
+const SUPABASE_ANON_KEY = 'sb_publishable_forsk3Jg8XPmjh1x-pFveg_wyjDKqxx';
+const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+const ESCALA = [
+  {v:0, r:'Nunca'}, {v:1, r:'Às vezes'}, {v:2, r:'Frequentemente'}, {v:3, r:'Quase sempre'}
+];
+
+const PERGUNTAS_SINTOMAS = [
+  {id:'s1', t:'Senti-me tenso(a), nervoso(a) ou no limite durante a rotina de trabalho.'},
+  {id:'s2', t:'Não consegui parar de me preocupar com questões do trabalho, mesmo fora do expediente.'},
+  {id:'s3', t:'Preocupei-me excessivamente com diferentes situações relacionadas ao trabalho.'},
+  {id:'s4', t:'Tive dificuldade para relaxar depois do expediente.'},
+  {id:'s5', t:'Senti-me tão inquieto(a) que foi difícil ficar parado(a) durante o trabalho.'},
+  {id:'s6', t:'Fiquei facilmente irritado(a) ou impaciente com colegas ou tarefas.'},
+  {id:'s7', t:'Senti medo de que algo ruim fosse acontecer relacionado ao meu trabalho ou desempenho.'}
+];
+const PERGUNTAS_GATILHOS = [
+  {id:'g1', t:'A quantidade de trabalho que preciso realizar é maior do que consigo dar conta no tempo disponível.'},
+  {id:'g2', t:'Tenho pouca autonomia para decidir como organizar minhas próprias tarefas.'},
+  {id:'g3', t:'Os prazos que preciso cumprir são pouco realistas.'},
+  {id:'g4', t:'Não sei exatamente o que se espera de mim no meu papel ou função.'},
+  {id:'g5', t:'Sinto insegurança quanto à estabilidade do meu emprego.'},
+  {id:'g6', t:'Falta apoio da liderança quando enfrento dificuldades no trabalho.'}
+];
+
+let campanhaAtual = null;
+
+function mostrar(id){
+  ['tela-carregando','tela-intro','tela-form','tela-obrigado','tela-erro'].forEach(t=>{
+    document.getElementById(t).style.display = (t===id) ? 'block' : 'none';
+  });
+}
+
+function renderPergunta(p){
+  return `<div class="pergunta" data-id="${p.id}">
+    <div class="texto">${p.t}</div>
+    <div class="opcoes">
+      ${ESCALA.map(op=>`<label class="opcao">
+        <input type="radio" name="${p.id}" value="${op.v}" onchange="checarCompleto()">
+        <span class="rot">${op.r}</span>
+      </label>`).join('')}
+    </div>
+  </div>`;
+}
+
+function checarCompleto(){
+  const total = PERGUNTAS_SINTOMAS.length + PERGUNTAS_GATILHOS.length;
+  let respondidas = 0;
+  [...PERGUNTAS_SINTOMAS, ...PERGUNTAS_GATILHOS].forEach(p=>{
+    if(document.querySelector(`input[name="${p.id}"]:checked`)) respondidas++;
+  });
+  document.getElementById('barra-progresso').style.width = (respondidas/total*100)+'%';
+  document.getElementById('btn-enviar').disabled = respondidas < total;
+}
+
+function iniciarQuestionario(){
+  const setor = document.getElementById('intro-setor').value;
+  if(!setor){ alert('Selecione seu setor para continuar.'); return; }
+  campanhaAtual.setor = setor;
+  document.getElementById('perguntas-sintomas').innerHTML = PERGUNTAS_SINTOMAS.map(renderPergunta).join('');
+  document.getElementById('perguntas-gatilhos').innerHTML = PERGUNTAS_GATILHOS.map(renderPergunta).join('');
+  mostrar('tela-form');
+}
+
+async function enviarRespostas(){
+  const respostas = { campanha_id: campanhaAtual.id, setor: campanhaAtual.setor };
+  let somaS = 0, somaG = 0;
+  [...PERGUNTAS_SINTOMAS].forEach(p=>{
+    const val = parseInt(document.querySelector(`input[name="${p.id}"]:checked`).value);
+    respostas[p.id] = val; somaS += val;
+  });
+  [...PERGUNTAS_GATILHOS].forEach(p=>{
+    const val = parseInt(document.querySelector(`input[name="${p.id}"]:checked`).value);
+    respostas[p.id] = val; somaG += val;
+  });
+  const pontuacaoSintomas = +(somaS/21*100).toFixed(1);
+  const pontuacaoGatilhos = +(somaG/18*100).toFixed(1);
+  const pontuacaoGeral = +(pontuacaoSintomas*0.6 + pontuacaoGatilhos*0.4).toFixed(1);
+
+  respostas.pontuacao_sintomas = pontuacaoSintomas;
+  respostas.pontuacao_gatilhos = pontuacaoGatilhos;
+  respostas.pontuacao_geral = pontuacaoGeral;
+
+  const btn = document.getElementById('btn-enviar');
+  btn.disabled = true; btn.textContent = 'Enviando...';
+
+  const { error } = await sb.from('ansiedade_respostas').insert(respostas);
+  if(error){
+    alert('Erro ao enviar. Tente novamente. ('+error.message+')');
+    btn.disabled = false; btn.textContent = 'Enviar respostas →';
+    return;
+  }
+  mostrar('tela-obrigado');
+}
+
+(async function init(){
+  const params = new URLSearchParams(window.location.search);
+  const token = params.get('token');
+  if(!token){ mostrar('tela-erro'); return; }
+
+  const { data, error } = await sb
+    .from('ansiedade_campanhas')
+    .select('id, status, ansiedade_empresas(nome)')
+    .eq('token', token)
+    .single();
+
+  if(error || !data){ mostrar('tela-erro'); return; }
+
+  campanhaAtual = { id: data.id };
+  document.getElementById('intro-empresa').textContent = data.ansiedade_empresas ? `Empresa: ${data.ansiedade_empresas.nome}` : '';
+  mostrar('tela-intro');
+})();
+</script>
+</body>
+</html>

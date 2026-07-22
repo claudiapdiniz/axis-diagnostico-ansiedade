@@ -1,0 +1,478 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Axis Diagnóstico Corporativo | Ansiedade Ocupacional</title>
+<meta name="description" content="Mapeamento de ansiedade ocupacional — Axis Consultorias">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@500;600;700;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+  :root{
+    --bege: #D8C7B8;
+    --bege-escuro: #CBB8A6;
+    --cinza-chumbo: #4A4A4A;
+    --preto-suave: #1F1F1F;
+    --branco-gelo: #F5F5F3;
+    --baixo: #6b8f71;
+    --atencao: #c9a227;
+    --alerta: #c98527;
+    --critico: #b5502e;
+    --emergencial: #8c2f2f;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0; min-height:100vh;
+    background:var(--branco-gelo);
+    color:var(--preto-suave);
+    font-family:'Inter',sans-serif;
+    -webkit-font-smoothing:antialiased;
+  }
+  h1,h2,h3,h4{font-family:'Montserrat',sans-serif; margin:0 0 8px; color:var(--preto-suave); letter-spacing:.2px;}
+  p{line-height:1.55;}
+  .hidden{display:none !important;}
+  .tela{max-width:560px; margin:0 auto; padding:48px 24px; min-height:100vh; display:flex; flex-direction:column; justify-content:center;}
+  .tela-larga{max-width:920px;}
+  .card{
+    background:#fff; border:1px solid var(--bege-escuro); border-radius:14px;
+    padding:32px; box-shadow:0 8px 24px rgba(74,74,74,.06);
+  }
+  .marca{display:flex; align-items:center; gap:10px; margin-bottom:28px;}
+  .marca .ponto{width:10px;height:10px;border-radius:50%;background:var(--cinza-chumbo);}
+  .marca span{font-family:'Montserrat',sans-serif; font-weight:700; letter-spacing:1px; color:var(--cinza-chumbo); font-size:14px; text-transform:uppercase;}
+  label{display:block; font-size:13px; font-weight:600; margin:16px 0 6px; color:var(--cinza-chumbo);}
+  input, select, textarea{
+    width:100%; padding:12px 14px; border-radius:8px; border:1px solid var(--bege-escuro);
+    font-family:'Inter',sans-serif; font-size:14px; background:var(--branco-gelo); color:var(--preto-suave);
+  }
+  input:focus, select:focus, textarea:focus{outline:2px solid var(--cinza-chumbo); outline-offset:1px;}
+  button{
+    font-family:'Montserrat',sans-serif; font-weight:600; font-size:14px; letter-spacing:.3px;
+    padding:13px 20px; border-radius:8px; border:none; cursor:pointer; transition:.15s;
+  }
+  .btn-principal{background:var(--preto-suave); color:var(--branco-gelo); width:100%; margin-top:22px;}
+  .btn-principal:hover{background:var(--cinza-chumbo);}
+  .btn-secundario{background:transparent; color:var(--cinza-chumbo); border:1px solid var(--bege-escuro) !important; width:100%; margin-top:10px;}
+  .btn-mini{background:var(--bege); color:var(--preto-suave); padding:8px 14px; font-size:12px;}
+  .erro{color:var(--critico); font-size:13px; margin-top:8px;}
+  .rodape-link{text-align:center; margin-top:20px; font-size:13px; color:var(--cinza-chumbo);}
+  .rodape-link b{color:var(--preto-suave);}
+
+  header.topo{
+    background:var(--preto-suave); color:var(--branco-gelo); padding:18px 28px;
+    display:flex; justify-content:space-between; align-items:center;
+  }
+  header.topo .nome{font-family:'Montserrat',sans-serif; font-weight:700; font-size:16px;}
+  header.topo .nome small{display:block; font-weight:400; font-size:11px; color:var(--bege); text-transform:uppercase; letter-spacing:1px;}
+  main.painel{max-width:1040px; margin:0 auto; padding:32px 24px 80px;}
+  .linha-topo{display:flex; justify-content:space-between; align-items:center; margin-bottom:24px; flex-wrap:wrap; gap:12px;}
+  .badge{display:inline-block; padding:4px 10px; border-radius:20px; font-size:11px; font-weight:700; font-family:'Montserrat',sans-serif;}
+  table{width:100%; border-collapse:collapse; margin-top:10px;}
+  th,td{text-align:left; padding:12px 10px; border-bottom:1px solid var(--bege-escuro); font-size:14px;}
+  th{color:var(--cinza-chumbo); font-family:'Montserrat',sans-serif; font-size:12px; text-transform:uppercase; letter-spacing:.5px;}
+  tr:hover td{background:rgba(216,199,184,.15);}
+  .cards-kpi{display:grid; grid-template-columns:repeat(auto-fit,minmax(200px,1fr)); gap:16px; margin-bottom:28px;}
+  .kpi{background:#fff; border:1px solid var(--bege-escuro); border-radius:12px; padding:20px;}
+  .kpi .valor{font-family:'Montserrat',sans-serif; font-weight:800; font-size:32px; line-height:1;}
+  .kpi .rotulo{font-size:12px; color:var(--cinza-chumbo); margin-top:6px;}
+  .modal-fundo{
+    position:fixed; inset:0; background:rgba(31,31,31,.55); display:flex; align-items:flex-start;
+    justify-content:center; padding:40px 16px; overflow-y:auto; z-index:50;
+  }
+  .modal{background:#fff; border-radius:14px; padding:32px; max-width:520px; width:100%;}
+  .link-caixa{
+    display:flex; gap:8px; background:var(--branco-gelo); border:1px dashed var(--cinza-chumbo);
+    border-radius:8px; padding:12px; font-size:13px; word-break:break-all; align-items:center;
+  }
+  .item-barra{margin-bottom:14px;}
+  .item-barra .rot{display:flex; justify-content:space-between; font-size:13px; margin-bottom:5px;}
+  .barra-fundo{background:var(--branco-gelo); border-radius:6px; height:10px; overflow:hidden;}
+  .barra-preenchida{height:100%; border-radius:6px;}
+  .recomendacoes ol{padding-left:20px;}
+  .recomendacoes li{margin-bottom:10px; line-height:1.5;}
+  .nota-cientifica{
+    font-size:12px; color:var(--cinza-chumbo); background:var(--branco-gelo); border-left:3px solid var(--cinza-chumbo);
+    padding:12px 16px; margin-top:24px; border-radius:0 8px 8px 0;
+  }
+  .toolbar{display:flex; gap:8px; flex-wrap:wrap;}
+  a.link-voltar{color:var(--cinza-chumbo); font-size:13px; text-decoration:none; display:inline-block; margin-bottom:14px;}
+</style>
+</head>
+<body>
+
+<!-- ===================== TELA 1: CÓDIGO DE ACESSO ===================== -->
+<section id="tela-acesso" class="tela">
+  <div class="card">
+    <div class="marca"><div class="ponto"></div><span>Axis Diagnóstico Corporativo</span></div>
+    <h2>Código de Acesso</h2>
+    <p>Esta ferramenta é licenciada individualmente. Digite o código que você recebeu ao adquirir o Axis Diagnóstico Corporativo.</p>
+    <label for="input-codigo">Código de licença</label>
+    <input id="input-codigo" type="text" placeholder="Ex.: AXIS-ANSIEDADE-2026" autocomplete="off">
+    <div id="erro-codigo" class="erro hidden">Código inválido. Verifique e tente novamente.</div>
+    <button class="btn-principal" onclick="validarCodigo()">Ativar Acesso →</button>
+    <div class="rodape-link">Não tem um código? Fale com a <b>Axis Consultorias</b><br>@axisconsultorias · (11) 94781-8238</div>
+  </div>
+</section>
+
+<!-- ===================== TELA 2: MINHA MARCA (primeiro acesso) ===================== -->
+<section id="tela-marca" class="tela hidden">
+  <div class="card">
+    <div class="marca"><div class="ponto"></div><span>Axis Diagnóstico Corporativo</span></div>
+    <h2>Sua Marca</h2>
+    <p>Personalize o app com os dados da sua consultoria. Estas informações aparecem nos links enviados às empresas e nos relatórios.</p>
+    <label>Nome da sua Consultoria / Empresa *</label>
+    <input id="m-consultoria" type="text" placeholder="Ex.: Axis Consultorias">
+    <label>Seu nome profissional *</label>
+    <input id="m-responsavel" type="text" placeholder="Ex.: Clau Diniz">
+    <label>WhatsApp / Contato</label>
+    <input id="m-whatsapp" type="text" placeholder="(11) 94781-8238">
+    <label>Instagram</label>
+    <input id="m-instagram" type="text" placeholder="@axisconsultorias">
+    <button class="btn-principal" onclick="salvarMarca()">Salvar e continuar →</button>
+  </div>
+</section>
+
+<!-- ===================== APP PRINCIPAL ===================== -->
+<div id="app" class="hidden">
+  <header class="topo">
+    <div class="nome"><span id="topo-consultoria">Axis Consultorias</span><small>Diagnóstico de Ansiedade Ocupacional</small></div>
+    <button class="btn-mini" onclick="mostrarTela('painel-dashboard')">Painel</button>
+  </header>
+
+  <!-- ---- DASHBOARD ---- -->
+  <main class="painel" id="painel-dashboard">
+    <div class="linha-topo">
+      <div>
+        <h2>Análises Realizadas</h2>
+        <p style="margin:0;color:var(--cinza-chumbo);font-size:13px;">Diagnósticos de ansiedade ocupacional em andamento e concluídos</p>
+      </div>
+      <button class="btn-principal" style="width:auto;margin:0;" onclick="abrirModalNovaEmpresa()">＋ Nova Análise</button>
+    </div>
+    <div class="card" style="padding:0;overflow-x:auto;">
+      <table>
+        <thead><tr><th>Empresa</th><th>Setor</th><th>Colaboradores</th><th>Data</th><th>Status</th><th></th></tr></thead>
+        <tbody id="tbody-campanhas"><tr><td colspan="6" style="color:var(--cinza-chumbo);">Carregando...</td></tr></tbody>
+      </table>
+    </div>
+  </main>
+
+  <!-- ---- TELA: LINK GERADO ---- -->
+  <main class="painel hidden" id="painel-link">
+    <a class="link-voltar" onclick="mostrarTela('painel-dashboard')">← Voltar às análises</a>
+    <div class="card">
+      <h2>Diagnóstico criado com sucesso</h2>
+      <p>Envie o link abaixo para os colaboradores da empresa. A resposta é <b>100% anônima</b> — nenhum colaborador é identificado em nenhuma etapa.</p>
+      <label>Link de resposta (colaboradores)</label>
+      <div class="link-caixa">
+        <span id="link-gerado" style="flex:1;"></span>
+        <button class="btn-mini" onclick="copiarLink()">Copiar</button>
+      </div>
+      <div class="nota-cientifica">
+        📋 Recomendação: distribua o link por e-mail ou WhatsApp interno, reforçando o caráter anônimo. Para empresas com 150 colaboradores, recomenda-se um mínimo de 40–50 respostas (≈30%) para um retrato estatisticamente representativo.
+      </div>
+      <button class="btn-secundario" onclick="mostrarTela('painel-dashboard')">Ir para o painel →</button>
+    </div>
+  </main>
+
+  <!-- ---- TELA: RESULTADOS ---- -->
+  <main class="painel hidden" id="painel-resultados">
+    <a class="link-voltar" onclick="mostrarTela('painel-dashboard')">← Voltar às análises</a>
+    <div id="resultados-conteudo">Carregando resultados...</div>
+  </main>
+</div>
+
+<!-- ===================== MODAL: NOVA ANÁLISE ===================== -->
+<div id="modal-nova-empresa" class="modal-fundo hidden">
+  <div class="modal">
+    <h3>Nova Análise</h3>
+    <p style="font-size:13px;color:var(--cinza-chumbo);">Preencha os dados da empresa antes de gerar o diagnóstico de ansiedade ocupacional.</p>
+    <div class="nota-cientifica">📋 Conformidade NR-1 (2025): o instrumento combina sintomas (adaptado do GAD-7 — Spitzer et al., 2006) e gatilhos organizacionais (Modelo Demanda-Controle de Karasek; COPSOQ), conforme a Portaria MTE nº 1.419/2024.</div>
+    <label>Nome da Empresa *</label>
+    <input id="ne-nome" type="text" placeholder="Ex.: Empresa XYZ Ltda.">
+    <label>Setor / Segmento</label>
+    <select id="ne-setor">
+      <option value="">Selecione...</option>
+      <option>Saúde</option><option>Educação</option><option>Tecnologia / TI</option>
+      <option>Varejo / Comércio</option><option>Indústria / Manufatura</option>
+      <option>Serviços Financeiros</option><option>Logística / Transporte</option>
+      <option>Construção Civil</option><option>Alimentação / Hotelaria</option>
+      <option>Administração Pública</option><option>Jurídico / Consultoria</option><option>Outro</option>
+    </select>
+    <label>Nº de Funcionários</label>
+    <select id="ne-porte">
+      <option value="1 a 9 (Microempresa)">1 a 9 (Microempresa)</option>
+      <option value="10 a 49 (Pequena Empresa)">10 a 49 (Pequena Empresa)</option>
+      <option value="50 a 199 (Média Empresa)" selected>50 a 199 (Média Empresa)</option>
+      <option value="200 a 499">200 a 499</option>
+      <option value="500 ou mais (Grande Empresa)">500 ou mais (Grande Empresa)</option>
+    </select>
+    <label>Número exato de colaboradores</label>
+    <input id="ne-numero" type="number" value="150" min="1">
+    <label>Data da Reunião / Início</label>
+    <input id="ne-data" type="date">
+    <div class="toolbar" style="margin-top:20px;">
+      <button class="btn-secundario" style="width:auto;margin:0;" onclick="fecharModalNovaEmpresa()">Cancelar</button>
+      <button class="btn-principal" style="width:auto;margin:0;" onclick="criarAnalise()">Gerar Diagnóstico →</button>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ======================= CONFIG SUPABASE ======================= */
+const SUPABASE_URL = 'https://kzouxunvofmjprqlzjfd.supabase.co';
+const SUPABASE_ANON_KEY = 'sb_publishable_forsk3Jg8XPmjh1x-pFveg_wyjDKqxx';
+const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+/* Códigos de licença válidos — ajuste/adicione conforme vender o acesso */
+const CODIGOS_VALIDOS = ['AXIS-ANSIEDADE-2026', 'AXISCONSULTORIAS'];
+
+/* Rótulos científicos usados no relatório */
+const LABELS_SINTOMAS = {
+  s1: 'Sentir-se tenso(a), nervoso(a) ou no limite durante a rotina de trabalho',
+  s2: 'Preocupação persistente com o trabalho, mesmo fora do expediente',
+  s3: 'Preocupação excessiva com diferentes situações do trabalho',
+  s4: 'Dificuldade para relaxar após o expediente',
+  s5: 'Inquietação que dificulta ficar parado(a) durante o trabalho',
+  s6: 'Irritabilidade ou impaciência com colegas ou tarefas',
+  s7: 'Medo de que algo ruim aconteça relacionado ao trabalho ou desempenho'
+};
+const LABELS_GATILHOS = {
+  g1: 'Sobrecarga — volume de trabalho maior do que o tempo disponível',
+  g2: 'Baixo controle — pouca autonomia para organizar as próprias tarefas',
+  g3: 'Pressão de prazos pouco realistas',
+  g4: 'Ambiguidade de papel — falta de clareza sobre o que se espera',
+  g5: 'Insegurança quanto à estabilidade do emprego',
+  g6: 'Falta de suporte da liderança diante de dificuldades'
+};
+const RECOMENDACOES_GATILHO = {
+  g1: 'Revisar a distribuição de tarefas e metas por colaborador, considerando redimensionamento de equipe ou repriorização de entregas.',
+  g2: 'Ampliar a autonomia dos colaboradores na organização do próprio trabalho, mantendo metas claras mas com flexibilidade na execução.',
+  g3: 'Reavaliar prazos e cronogramas junto às lideranças, tornando-os tecnicamente viáveis.',
+  g4: 'Formalizar e comunicar claramente papéis, responsabilidades e expectativas de desempenho de cada função.',
+  g5: 'Investir em comunicação transparente sobre a situação e as perspectivas da empresa, reduzindo rumores e incerteza.',
+  g6: 'Capacitar lideranças em escuta ativa e suporte emocional às equipes (ex.: treinamento em liderança psicologicamente segura).'
+};
+
+/* ======================= NAVEGAÇÃO ======================= */
+function mostrarTela(id){
+  document.querySelectorAll('main.painel').forEach(e=>e.classList.add('hidden'));
+  document.getElementById(id).classList.remove('hidden');
+  if(id==='painel-dashboard') carregarCampanhas();
+}
+
+function validarCodigo(){
+  const codigo = document.getElementById('input-codigo').value.trim().toUpperCase();
+  if(!CODIGOS_VALIDOS.includes(codigo)){
+    document.getElementById('erro-codigo').classList.remove('hidden');
+    return;
+  }
+  localStorage.setItem('axis_diag_licenca', codigo);
+  document.getElementById('tela-acesso').classList.add('hidden');
+  const marca = localStorage.getItem('axis_diag_marca');
+  if(marca){
+    iniciarApp(JSON.parse(marca));
+  } else {
+    document.getElementById('tela-marca').classList.remove('hidden');
+  }
+}
+
+function salvarMarca(){
+  const marca = {
+    consultoria: document.getElementById('m-consultoria').value.trim() || 'Axis Consultorias',
+    responsavel: document.getElementById('m-responsavel').value.trim(),
+    whatsapp: document.getElementById('m-whatsapp').value.trim(),
+    instagram: document.getElementById('m-instagram').value.trim()
+  };
+  localStorage.setItem('axis_diag_marca', JSON.stringify(marca));
+  document.getElementById('tela-marca').classList.add('hidden');
+  iniciarApp(marca);
+}
+
+function iniciarApp(marca){
+  document.getElementById('topo-consultoria').textContent = marca.consultoria || 'Axis Consultorias';
+  document.getElementById('app').classList.remove('hidden');
+  mostrarTela('painel-dashboard');
+}
+
+/* ======================= DASHBOARD ======================= */
+async function carregarCampanhas(){
+  const tbody = document.getElementById('tbody-campanhas');
+  const { data, error } = await sb
+    .from('ansiedade_campanhas')
+    .select('id, token, status, criado_em, ansiedade_empresas(nome, setor, numero_colaboradores, data_diagnostico)')
+    .order('criado_em', { ascending:false });
+
+  if(error){ tbody.innerHTML = `<tr><td colspan="6" style="color:var(--critico);">Erro ao carregar: ${error.message}</td></tr>`; return; }
+  if(!data || data.length===0){ tbody.innerHTML = `<tr><td colspan="6" style="color:var(--cinza-chumbo);">Nenhuma análise ainda. Clique em "＋ Nova Análise".</td></tr>`; return; }
+
+  tbody.innerHTML = data.map(c=>{
+    const e = c.ansiedade_empresas || {};
+    return `<tr>
+      <td><b>${e.nome||'—'}</b></td>
+      <td>${e.setor||'—'}</td>
+      <td>${e.numero_colaboradores||'—'}</td>
+      <td>${e.data_diagnostico||'—'}</td>
+      <td><span class="badge" style="background:var(--bege);">${c.status}</span></td>
+      <td class="toolbar">
+        <button class="btn-mini" onclick="verLink('${c.token}')">Link</button>
+        <button class="btn-mini" onclick="verResultados('${c.token}','${(e.nome||'').replace(/'/g,"")}',${e.numero_colaboradores||0})">Resultados</button>
+      </td>
+    </tr>`;
+  }).join('');
+}
+
+function abrirModalNovaEmpresa(){ document.getElementById('modal-nova-empresa').classList.remove('hidden'); }
+function fecharModalNovaEmpresa(){ document.getElementById('modal-nova-empresa').classList.add('hidden'); }
+
+async function criarAnalise(){
+  const nome = document.getElementById('ne-nome').value.trim();
+  if(!nome){ alert('Informe o nome da empresa.'); return; }
+  const marca = JSON.parse(localStorage.getItem('axis_diag_marca')||'{}');
+
+  const empresa = {
+    nome,
+    setor: document.getElementById('ne-setor').value,
+    porte: document.getElementById('ne-porte').value,
+    numero_colaboradores: parseInt(document.getElementById('ne-numero').value)||null,
+    data_diagnostico: document.getElementById('ne-data').value || null,
+    consultoria_nome: marca.consultoria||null,
+    consultoria_responsavel: marca.responsavel||null,
+    consultoria_whatsapp: marca.whatsapp||null,
+    consultoria_instagram: marca.instagram||null
+  };
+
+  const { data: empresaData, error: erroEmpresa } = await sb.from('ansiedade_empresas').insert(empresa).select().single();
+  if(erroEmpresa){ alert('Erro ao criar empresa: '+erroEmpresa.message); return; }
+
+  const { data: campanhaData, error: erroCampanha } = await sb.from('ansiedade_campanhas')
+    .insert({ empresa_id: empresaData.id }).select().single();
+  if(erroCampanha){ alert('Erro ao criar campanha: '+erroCampanha.message); return; }
+
+  fecharModalNovaEmpresa();
+  verLink(campanhaData.token);
+}
+
+function verLink(token){
+  const base = window.location.href.replace(/index\.html.*$/,'').replace(/\/$/,'');
+  const url = `${base}/responder.html?token=${token}`;
+  document.getElementById('link-gerado').textContent = url;
+  document.getElementById('link-gerado').dataset.url = url;
+  mostrarTela('painel-link');
+}
+
+function copiarLink(){
+  const url = document.getElementById('link-gerado').dataset.url;
+  navigator.clipboard.writeText(url).then(()=>alert('Link copiado!'));
+}
+
+/* ======================= RESULTADOS ======================= */
+function classificar(pontuacao){
+  if(pontuacao<=20) return {texto:'Baixo', cor:'var(--baixo)'};
+  if(pontuacao<=40) return {texto:'Atenção', cor:'var(--atencao)'};
+  if(pontuacao<=60) return {texto:'Alerta', cor:'var(--alerta)'};
+  if(pontuacao<=80) return {texto:'Crítico', cor:'var(--critico)'};
+  return {texto:'Emergencial', cor:'var(--emergencial)'};
+}
+
+async function verResultados(token, nomeEmpresa, numeroColaboradores){
+  mostrarTela('painel-resultados');
+  const container = document.getElementById('resultados-conteudo');
+  container.innerHTML = 'Carregando resultados...';
+
+  const { data, error } = await sb.rpc('ansiedade_resultado_campanha', { p_token: token });
+  if(error){ container.innerHTML = `<div class="card">Erro: ${error.message}</div>`; return; }
+
+  if(data.insuficiente){
+    container.innerHTML = `<div class="card">
+      <h2>${nomeEmpresa}</h2>
+      <p>Aguardando respostas suficientes para gerar o relatório com proteção de anonimato (mínimo de 5 respostas).</p>
+      <p><b>Respostas recebidas até agora:</b> ${data.total_respondentes}</p>
+    </div>`;
+    return;
+  }
+
+  const geral = classificar(data.pontuacao_geral);
+  const taxaResposta = numeroColaboradores ? ((data.total_respondentes/numeroColaboradores)*100).toFixed(1) : '—';
+
+  const itensOrdenados = Object.entries({...LABELS_GATILHOS, ...LABELS_SINTOMAS})
+    .map(([cod,label])=>({cod, label, media: data.itens[cod]||0, tipo: cod.startsWith('g')?'Gatilho':'Sintoma'}))
+    .sort((a,b)=>b.media-a.media);
+
+  const topGatilhos = itensOrdenados.filter(i=>i.tipo==='Gatilho' && i.media>=1.5).slice(0,3);
+
+  const recomendacoes = [];
+  topGatilhos.forEach(g=>recomendacoes.push(RECOMENDACOES_GATILHO[g.cod]));
+  if(data.pontuacao_geral>=61){
+    recomendacoes.push('Nível crítico/emergencial identificado: recomenda-se disponibilizar suporte psicológico corporativo (ex.: parceria com serviço de escuta ou terapia breve) e reavaliação em até 90 dias.');
+  } else if(data.pontuacao_geral>=41){
+    recomendacoes.push('Nível de alerta: implementar plano de ação nos próximos 60 dias, com acompanhamento trimestral dos indicadores.');
+  } else {
+    recomendacoes.push('Manter monitoramento periódico (semestral) para sustentar o nível saudável identificado.');
+  }
+  if(recomendacoes.length===0) recomendacoes.push('Nenhum gatilho organizacional se destacou de forma crítica — priorizar ações preventivas gerais de bem-estar.');
+
+  const setoresHtml = data.por_setor.length
+    ? `<table><thead><tr><th>Setor</th><th>Respondentes</th><th>Índice Geral</th><th>Classificação</th></tr></thead><tbody>
+        ${data.por_setor.map(s=>`<tr><td>${s.setor}</td><td>${s.respondentes}</td><td>${s.pontuacao_geral}</td><td>${classificar(s.pontuacao_geral).texto}</td></tr>`).join('')}
+      </tbody></table>`
+    : `<p style="color:var(--cinza-chumbo);font-size:13px;">Nenhum setor atingiu o mínimo de 5 respostas para exibição individual — preservando o anonimato dos colaboradores.</p>`;
+
+  const barrasHtml = itensOrdenados.map(i=>{
+    const pct = (i.media/3*100).toFixed(0);
+    const cor = i.tipo==='Gatilho' ? 'var(--cinza-chumbo)' : 'var(--bege-escuro)';
+    return `<div class="item-barra">
+      <div class="rot"><span>${i.label} <small style="color:var(--cinza-chumbo);">(${i.tipo})</small></span><b>${i.media}/3</b></div>
+      <div class="barra-fundo"><div class="barra-preenchida" style="width:${pct}%;background:${cor};"></div></div>
+    </div>`;
+  }).join('');
+
+  container.innerHTML = `
+    <div class="card" style="margin-bottom:20px;">
+      <h2>${nomeEmpresa}</h2>
+      <p style="color:var(--cinza-chumbo);margin-top:-6px;">Relatório de Diagnóstico de Ansiedade Ocupacional — ${new Date().toLocaleDateString('pt-BR')}</p>
+      <div class="cards-kpi">
+        <div class="kpi"><div class="valor" style="color:${geral.cor};">${data.pontuacao_geral}</div><div class="rotulo">Índice Geral (0–100) · ${geral.texto}</div></div>
+        <div class="kpi"><div class="valor">${data.pontuacao_sintomas}</div><div class="rotulo">Sintomas (GAD-7 adaptado)</div></div>
+        <div class="kpi"><div class="valor">${data.pontuacao_gatilhos}</div><div class="rotulo">Gatilhos Organizacionais</div></div>
+        <div class="kpi"><div class="valor">${data.total_respondentes}</div><div class="rotulo">Respondentes · ${taxaResposta}% de adesão</div></div>
+      </div>
+    </div>
+
+    <div class="card" style="margin-bottom:20px;">
+      <h3>Resultado por Setor</h3>
+      ${setoresHtml}
+    </div>
+
+    <div class="card" style="margin-bottom:20px;">
+      <h3>Sintomas e Gatilhos — Detalhamento</h3>
+      ${barrasHtml}
+    </div>
+
+    <div class="card recomendacoes" style="margin-bottom:20px;">
+      <h3>Recomendações Práticas</h3>
+      <ol>${recomendacoes.map(r=>`<li>${r}</li>`).join('')}</ol>
+    </div>
+
+    <div class="nota-cientifica">
+      Metodologia: Bloco de sintomas adaptado do GAD-7 (Spitzer, Kroenke, Williams &amp; Löwe, 2006 — <i>Archives of Internal Medicine</i>), sensibilidade de 89% e especificidade de 82% para rastreio de ansiedade generalizada. Bloco de gatilhos organizacionais fundamentado no Modelo Demanda-Controle (Karasek, 1979) e no COPSOQ (Kristensen et al., 2005). Pontuação geral = 60% sintomas + 40% gatilhos, escala 0–100. Este relatório não constitui diagnóstico clínico — indica risco e tendência, em conformidade com a Portaria MTE nº 1.419/2024 (NR-1).
+    </div>
+    <button class="btn-secundario" onclick="window.print()">Exportar / Imprimir PDF</button>
+  `;
+}
+
+/* ======================= INICIALIZAÇÃO ======================= */
+(function init(){
+  const licenca = localStorage.getItem('axis_diag_licenca');
+  if(licenca && CODIGOS_VALIDOS.includes(licenca)){
+    document.getElementById('tela-acesso').classList.add('hidden');
+    const marca = localStorage.getItem('axis_diag_marca');
+    if(marca){ iniciarApp(JSON.parse(marca)); }
+    else { document.getElementById('tela-marca').classList.remove('hidden'); }
+  }
+})();
+</script>
+</body>
+</html>
