@@ -99,6 +99,35 @@
   }
   .toolbar{display:flex; gap:8px; flex-wrap:wrap;}
   a.link-voltar{color:var(--cinza-chumbo); font-size:13px; text-decoration:none; display:inline-block; margin-bottom:14px;}
+
+  /* ===== Cabeçalho de relatório estilo AXIS Insight NR-1 ===== */
+  .header-relatorio{
+    background:var(--preto-suave); color:var(--branco-gelo); border-radius:14px; padding:22px 26px;
+    display:grid; grid-template-columns:2fr 1fr 1fr 1fr; gap:18px; margin-bottom:20px; align-items:center;
+  }
+  .header-relatorio .rotulo{font-size:11px; text-transform:uppercase; letter-spacing:1px; color:var(--bege); margin-bottom:4px;}
+  .header-relatorio .valor{font-family:'Montserrat',sans-serif; font-weight:800; font-size:20px;}
+  .header-relatorio .valor.risco-baixo{color:var(--baixo);}
+  .header-relatorio .valor.risco-atencao{color:var(--atencao);}
+  .header-relatorio .valor.risco-alerta{color:var(--alerta);}
+  .header-relatorio .valor.risco-critico{color:#e0866b;}
+  .header-relatorio .valor.risco-emergencial{color:#e06b6b;}
+
+  .grafico-container{background:#fff; border:1px solid var(--bege-escuro); border-radius:14px; padding:24px; margin-bottom:20px;}
+  .grafico-container canvas{max-height:420px;}
+
+  .grid-fatores{display:grid; grid-template-columns:repeat(auto-fit,minmax(260px,1fr)); gap:16px; margin-bottom:20px;}
+  .card-fator{
+    background:#fff; border:1px solid var(--bege-escuro); border-left-width:4px; border-radius:10px; padding:18px;
+  }
+  .card-fator .titulo-fator{font-family:'Montserrat',sans-serif; font-weight:700; font-size:14.5px; margin-bottom:2px;}
+  .card-fator .desc-fator{font-size:12px; color:var(--cinza-chumbo); margin-bottom:12px; line-height:1.4;}
+  .card-fator .pct-fator{font-family:'Montserrat',sans-serif; font-weight:800; font-size:22px; margin-bottom:6px;}
+  .card-fator .barra-fundo{background:var(--branco-gelo); border-radius:6px; height:8px; overflow:hidden; margin-bottom:10px;}
+  .card-fator .barra-preenchida{height:100%; border-radius:6px;}
+  .card-fator .contagem-alto{font-size:11.5px; color:var(--cinza-chumbo); display:flex; justify-content:space-between; align-items:center; border-top:1px solid var(--branco-gelo); padding-top:8px;}
+  .card-fator .contagem-alto b{color:var(--critico);}
+  .subtitulo-bloco{font-family:'Montserrat',sans-serif; font-weight:700; font-size:15px; margin:24px 0 12px;}
 </style>
 </head>
 <body>
@@ -228,6 +257,7 @@ const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 /* Códigos de licença válidos — ajuste/adicione conforme vender o acesso */
 const CODIGOS_VALIDOS = ['AXIS-ANSIEDADE-2026', 'AXISCONSULTORIAS'];
+let graficoResultados = null;
 
 /* Rótulos científicos usados no relatório */
 const LABELS_SINTOMAS = {
@@ -246,6 +276,14 @@ const LABELS_GATILHOS = {
   g4: 'Ambiguidade de papel — falta de clareza sobre o que se espera',
   g5: 'Insegurança quanto à estabilidade do emprego',
   g6: 'Falta de suporte da liderança diante de dificuldades'
+};
+const TITULOS_SINTOMAS = {
+  s1: 'Tensão e Nervosismo', s2: 'Preocupação Persistente', s3: 'Preocupação Excessiva',
+  s4: 'Dificuldade para Relaxar', s5: 'Inquietação', s6: 'Irritabilidade', s7: 'Medo de Desempenho'
+};
+const TITULOS_GATILHOS = {
+  g1: 'Sobrecarga de Trabalho', g2: 'Baixo Controle', g3: 'Pressão de Prazos',
+  g4: 'Ambiguidade de Papel', g5: 'Insegurança no Emprego', g6: 'Falta de Suporte da Liderança'
 };
 const RECOMENDACOES_GATILHO = {
   g1: 'Revisar a distribuição de tarefas e metas por colaborador, considerando redimensionamento de equipe ou repriorização de entregas.',
@@ -377,6 +415,12 @@ function classificar(pontuacao){
   return {texto:'Emergencial', cor:'var(--emergencial)'};
 }
 
+function corPorPercentual(pct){
+  if(pct<=33) return {cor:'#6b8f71', classe:'risco-baixo'};
+  if(pct<=66) return {cor:'#c9a227', classe:'risco-atencao'};
+  return {cor:'#b5502e', classe:'risco-critico'};
+}
+
 async function verResultados(token, nomeEmpresa, numeroColaboradores){
   mostrarTela('painel-resultados');
   const container = document.getElementById('resultados-conteudo');
@@ -396,12 +440,25 @@ async function verResultados(token, nomeEmpresa, numeroColaboradores){
 
   const geral = classificar(data.pontuacao_geral);
   const taxaResposta = numeroColaboradores ? ((data.total_respondentes/numeroColaboradores)*100).toFixed(1) : '—';
+  const contagens = data.contagens_alto || {};
 
-  const itensOrdenados = Object.entries({...LABELS_GATILHOS, ...LABELS_SINTOMAS})
-    .map(([cod,label])=>({cod, label, media: data.itens[cod]||0, tipo: cod.startsWith('g')?'Gatilho':'Sintoma'}))
-    .sort((a,b)=>b.media-a.media);
+  const montaItem = (cod, tipo) => {
+    const media = data.itens[cod]||0;
+    const pct = +(media/3*100).toFixed(0);
+    return {
+      cod, tipo,
+      titulo: tipo==='Sintoma' ? TITULOS_SINTOMAS[cod] : TITULOS_GATILHOS[cod],
+      descricao: tipo==='Sintoma' ? LABELS_SINTOMAS[cod] : LABELS_GATILHOS[cod],
+      media, pct,
+      contagemAlto: contagens[cod]||0
+    };
+  };
 
-  const topGatilhos = itensOrdenados.filter(i=>i.tipo==='Gatilho' && i.media>=1.5).slice(0,3);
+  const itensSintomas = Object.keys(LABELS_SINTOMAS).map(c=>montaItem(c,'Sintoma'));
+  const itensGatilhos = Object.keys(LABELS_GATILHOS).map(c=>montaItem(c,'Gatilho'));
+  const itensOrdenados = [...itensSintomas, ...itensGatilhos].sort((a,b)=>b.pct-a.pct);
+
+  const topGatilhos = itensGatilhos.filter(i=>i.media>=1.5).sort((a,b)=>b.media-a.media).slice(0,3);
 
   const recomendacoes = [];
   topGatilhos.forEach(g=>recomendacoes.push(RECOMENDACOES_GATILHO[g.cod]));
@@ -420,35 +477,46 @@ async function verResultados(token, nomeEmpresa, numeroColaboradores){
       </tbody></table>`
     : `<p style="color:var(--cinza-chumbo);font-size:13px;">Nenhum setor atingiu o mínimo de 5 respostas para exibição individual — preservando o anonimato dos colaboradores.</p>`;
 
-  const barrasHtml = itensOrdenados.map(i=>{
-    const pct = (i.media/3*100).toFixed(0);
-    const cor = i.tipo==='Gatilho' ? 'var(--cinza-chumbo)' : 'var(--bege-escuro)';
-    return `<div class="item-barra">
-      <div class="rot"><span>${i.label} <small style="color:var(--cinza-chumbo);">(${i.tipo})</small></span><b>${i.media}/3</b></div>
-      <div class="barra-fundo"><div class="barra-preenchida" style="width:${pct}%;background:${cor};"></div></div>
+  const cardFator = (item) => {
+    const cor = corPorPercentual(item.pct);
+    return `<div class="card-fator" style="border-left-color:${cor.cor};">
+      <div class="titulo-fator">${item.titulo}</div>
+      <div class="desc-fator">${item.descricao}</div>
+      <div class="pct-fator" style="color:${cor.cor};">${item.pct}%</div>
+      <div class="barra-fundo"><div class="barra-preenchida" style="width:${item.pct}%;background:${cor.cor};"></div></div>
+      <div class="contagem-alto"><span>Respondentes em nível alto</span><b>${item.contagemAlto}</b></div>
     </div>`;
-  }).join('');
+  };
 
   container.innerHTML = `
-    <div class="card" style="margin-bottom:20px;">
-      <h2>${nomeEmpresa}</h2>
-      <p style="color:var(--cinza-chumbo);margin-top:-6px;">Relatório de Diagnóstico de Ansiedade Ocupacional — ${new Date().toLocaleDateString('pt-BR')}</p>
-      <div class="cards-kpi">
-        <div class="kpi"><div class="valor" style="color:${geral.cor};">${data.pontuacao_geral}</div><div class="rotulo">Índice Geral (0–100) · ${geral.texto}</div></div>
-        <div class="kpi"><div class="valor">${data.pontuacao_sintomas}</div><div class="rotulo">Sintomas (GAD-7 adaptado)</div></div>
-        <div class="kpi"><div class="valor">${data.pontuacao_gatilhos}</div><div class="rotulo">Gatilhos Organizacionais</div></div>
-        <div class="kpi"><div class="valor">${data.total_respondentes}</div><div class="rotulo">Respondentes · ${taxaResposta}% de adesão</div></div>
-      </div>
+    <div class="header-relatorio">
+      <div><div class="rotulo">Empresa</div><div class="valor" style="font-size:17px;">${nomeEmpresa}</div></div>
+      <div><div class="rotulo">Respondentes</div><div class="valor">${data.total_respondentes}${numeroColaboradores?` / ${numeroColaboradores}`:''}</div></div>
+      <div><div class="rotulo">Risco Geral</div><div class="valor ${geral.classe||''}" style="color:${geral.cor};">${geral.texto}</div></div>
+      <div><div class="rotulo">Gerado em</div><div class="valor" style="font-size:15px;">${new Date().toLocaleDateString('pt-BR')}</div></div>
     </div>
+
+    <div class="cards-kpi">
+      <div class="kpi"><div class="valor" style="color:${geral.cor};">${data.pontuacao_geral}</div><div class="rotulo">Índice Geral (0–100) · ${geral.texto}</div></div>
+      <div class="kpi"><div class="valor">${data.pontuacao_sintomas}</div><div class="rotulo">Sintomas (GAD-7 adaptado)</div></div>
+      <div class="kpi"><div class="valor">${data.pontuacao_gatilhos}</div><div class="rotulo">Gatilhos Organizacionais</div></div>
+      <div class="kpi"><div class="valor">${taxaResposta}%</div><div class="rotulo">Taxa de adesão</div></div>
+    </div>
+
+    <div class="grafico-container">
+      <h3 style="margin-bottom:14px;">Ranking de Sintomas e Gatilhos</h3>
+      <div style="position:relative; height:420px;"><canvas id="canvas-resultados"></canvas></div>
+    </div>
+
+    <div class="subtitulo-bloco">Bloco 1 · Sintomas (GAD-7 adaptado)</div>
+    <div class="grid-fatores">${itensSintomas.map(cardFator).join('')}</div>
+
+    <div class="subtitulo-bloco">Bloco 2 · Gatilhos Organizacionais</div>
+    <div class="grid-fatores">${itensGatilhos.map(cardFator).join('')}</div>
 
     <div class="card" style="margin-bottom:20px;">
       <h3>Resultado por Setor</h3>
       ${setoresHtml}
-    </div>
-
-    <div class="card" style="margin-bottom:20px;">
-      <h3>Sintomas e Gatilhos — Detalhamento</h3>
-      ${barrasHtml}
     </div>
 
     <div class="card recomendacoes" style="margin-bottom:20px;">
@@ -457,10 +525,37 @@ async function verResultados(token, nomeEmpresa, numeroColaboradores){
     </div>
 
     <div class="nota-cientifica">
-      Metodologia: Bloco de sintomas adaptado do GAD-7 (Spitzer, Kroenke, Williams &amp; Löwe, 2006 — <i>Archives of Internal Medicine</i>), sensibilidade de 89% e especificidade de 82% para rastreio de ansiedade generalizada. Bloco de gatilhos organizacionais fundamentado no Modelo Demanda-Controle (Karasek, 1979) e no COPSOQ (Kristensen et al., 2005). Pontuação geral = 60% sintomas + 40% gatilhos, escala 0–100. Este relatório não constitui diagnóstico clínico — indica risco e tendência, em conformidade com a Portaria MTE nº 1.419/2024 (NR-1).
+      Metodologia: Bloco de sintomas adaptado do GAD-7 (Spitzer, Kroenke, Williams &amp; Löwe, 2006 — <i>Archives of Internal Medicine</i>), sensibilidade de 89% e especificidade de 82% para rastreio de ansiedade generalizada. Bloco de gatilhos organizacionais fundamentado no Modelo Demanda-Controle (Karasek, 1979) e no COPSOQ (Kristensen et al., 2005). Pontuação geral = 60% sintomas + 40% gatilhos, escala 0–100. "Respondentes em nível alto" = colaboradores que marcaram "Frequentemente" ou "Quase sempre" nesse item. Este relatório não constitui diagnóstico clínico — indica risco e tendência, em conformidade com a Portaria MTE nº 1.419/2024 (NR-1).
     </div>
     <button class="btn-secundario" onclick="window.print()">Exportar / Imprimir PDF</button>
   `;
+
+  if(graficoResultados){ graficoResultados.destroy(); graficoResultados = null; }
+  const ctx = document.getElementById('canvas-resultados');
+  if(ctx && window.Chart){
+    graficoResultados = new Chart(ctx, {
+      type: 'bar',
+      data: {
+        labels: itensOrdenados.map(i=>i.titulo),
+        datasets: [{
+          label: 'Intensidade média (%)',
+          data: itensOrdenados.map(i=>i.pct),
+          backgroundColor: itensOrdenados.map(i=>corPorPercentual(i.pct).cor),
+          borderRadius: 4
+        }]
+      },
+      options: {
+        indexAxis: 'y',
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: { legend: { display:false } },
+        scales: {
+          x: { min:0, max:100, ticks:{ color:'#4A4A4A' }, grid:{ color:'#F5F5F3' } },
+          y: { ticks:{ color:'#4A4A4A' }, grid:{ display:false } }
+        }
+      }
+    });
+  }
 }
 
 /* ======================= INICIALIZAÇÃO ======================= */
